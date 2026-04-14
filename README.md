@@ -8,7 +8,7 @@ Convert Packet Tracer files (.pkt/.pka) to XML and vice versa.
 
 I was kind of curious about the file format used by Packet Tracer. So, after some reverse engineering and analysis here is the result. This tool allow you to convert the *binary* format of the **.pkt/.pka** to a readable **XML** file. You can also revert an **XML** back to a **Packet Tracer** file.
 
-**Update:** The tool is now compatible with **Cisco Packet Tracer (CPT) 9.0**.
+**Update:** The tool is now fully compatible with **Cisco Packet Tracer (CPT) 9.0** encryption.
 
 ## Description
 
@@ -31,7 +31,10 @@ $ hexdump -C sample.pkt
 [...]
 ```
 
-I did some reverse engineering on it and discovered that is was in fact a compressed XML file (with [zlib](http://zlib.net/)). However, the compressed file had some kind of encryption. For legacy files, each byte of the file was xored with the file size as key :
+I did some reverse engineering on it and discovered that is was in fact a compressed XML file (with [zlib](http://zlib.net/)). However, the compressed file has some kind of encryption depending on the Packet Tracer version used to save it.
+
+### Legacy format
+For legacy files, each byte of the file was xored with the file size as key :
 
 ```text
 encrypted_byte_0 XOR (file_size - 0) = cleartext_byte_0
@@ -44,7 +47,8 @@ encrypted_byte_3 XOR (file_size - 3) = cleartext_byte_3
 
 So basically, for legacy files, this script simply reverses the XOR and uncompresses the file.
 
-With **Cisco Packet Tracer 9.0**, a new "modern" protection mechanism was introduced based on the Twofish encryption algorithm. The script now automatically detects and applies the appropriate decryption method (legacy XOR or modern Twofish). 
+### Modern format (CPT 9.x)
+With **Cisco Packet Tracer 9.0**, a new "modern" protection mechanism was introduced based on the **Twofish** encryption algorithm. The script now automatically detects and applies the appropriate decryption method (legacy XOR or modern Twofish). 
 
 The result is an XML file :
 
@@ -65,13 +69,13 @@ The result is an XML file :
 [...]
 ```
 
-> **Note :** Once XORed, the 4 first bytes contain the file size uncompressed. The script takes care of removing them before uncompressing the file.
+> **Note :** For legacy formats, once XORed, the 4 first bytes contain the file size uncompressed. The script takes care of removing them before uncompressing the file.
 
 ## Install
 
-Checkout the source: `https://github.com/axcheron/ptexplorer.git`
+Checkout the source: `https://github.com/ZiadBengherabi/ptexplorerV2.git`
 
-No dependencies required.
+No external dependencies are required. All necessary cryptographic primitives (such as the Twofish algorithm implementation) are bundled transparently within the `Decipher` module.
 
 ## Getting Started
 
@@ -92,7 +96,7 @@ optional arguments:
 
 # Decoding
 $ python3 ptexplorer.py -d sample.pka sample.xml
-[*] Opening Packet Tracer file 'sample.pka'
+[*] Opening Packet Tracer file 'sample.pka' 
 [*] File size compressed = 164664 bytes
 [*] File size uncompressed = 3475692 bytes
 [*] Decoder used = legacy
@@ -100,7 +104,7 @@ $ python3 ptexplorer.py -d sample.pka sample.xml
 
 # Encoding
 $ python3 ptexplorer.py -e sample.xml sample.pkt
-[*] Opening XML file 'sample.xml'
+[*] Opening XML file 'sample.xml' 
 [*] File size uncompressed = 3475692 bytes
 [*] File size compressed = 164664 bytes
 [*] Writing PKT to 'sample.pkt'
